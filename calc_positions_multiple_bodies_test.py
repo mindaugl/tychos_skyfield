@@ -1,5 +1,5 @@
 """
-Test script showing how to set up 2 object(planet) system - parent and child.
+Test script showing how to set up multiple object(planet) system.
 The test agrees with the Tychosium - both planet locations and quaternions were tested.
 """
 from scipy.spatial.transform import Rotation as R
@@ -88,24 +88,69 @@ class PlanetObj:
 ### Check for 2 planet system, parameters arbitrary for full parameter scope coverage,
 # both quaternions and positions agree with tychosium
 
-sun_def = PlanetObj(35, OrbitCenter(10, 20, -10),
+sun_temp_def = PlanetObj(35, OrbitCenter(10, 20, -10),
                     OrbitTilt(30, 60), 180)
-sun = PlanetObj(100, OrbitCenter(25, 35, -10),
+sun_temp = PlanetObj(100, OrbitCenter(25, 35, -10),
                 OrbitTilt(15, 30), 15)
-sun_def.add_child(sun)
-sun_def.move_planet(1, 0)
-print("sun before move:")
-print("location:", sun.location)
-print("rotation vector:", sun.rotation.as_rotvec())
-print("quaternion:", sun.rotation.as_quat())
-sun.move_planet(1, 0)
+sun_temp_def.add_child(sun_temp)
+sun_temp_def.move_planet(1, 0)
+print("sun_temp before move:")
+print("location:", sun_temp.location)
+print("rotation vector:", sun_temp.rotation.as_rotvec())
+print("quaternion:", sun_temp.rotation.as_quat())
+sun_temp.move_planet(1, 0)
 
-print("sun_def:")
-print("location:", sun_def.location)
-print("rotation vector:", sun_def.rotation.as_rotvec())
-print("quaternion:", sun_def.rotation.as_quat())
+print("sun_temp_def:")
+print("location:", sun_temp_def.location)
+print("rotation vector:", sun_temp_def.rotation.as_rotvec())
+print("quaternion:", sun_temp_def.rotation.as_quat())
 
-print("sun:")
-print("location:", sun.location)
-print("rotation vector:", sun.rotation.as_rotvec())
-print("quaternion:", sun.rotation.as_quat())
+print("sun_temp:")
+print("location:", sun_temp.location)
+print("rotation vector:", sun_temp.rotation.as_rotvec())
+print("quaternion:", sun_temp.rotation.as_quat())
+
+### Check mercury planet system, parameters are actual from tychosium,
+# both quaternions and positions agree with tychosium
+
+earth = PlanetObj( 37.8453, OrbitCenter(0, 0, 0),
+                      OrbitTilt(0, 0), 0)
+mer_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
+                      OrbitTilt(0, 0), 0)
+mer_def_b = PlanetObj(0, OrbitCenter(0, 0, 0),
+                      OrbitTilt(-1.3, 0.5), 33)
+mer = PlanetObj(38.710225, OrbitCenter(0.6, 3, -0.1),
+                OrbitTilt(3, 0.5), -180.8)
+
+earth.add_child(mer_def_a)
+mer_def_a.add_child(mer_def_b)
+mer_def_b.add_child(mer)
+
+position = 0 # the new position in degrees
+
+earth.move_planet(1, 90 + position)
+mer_def_a.move_planet(1, position)
+mer_def_b.move_planet(1, position)
+mer.move_planet(1, position)
+print("")
+
+print("earth:")
+print("location:", earth.location)
+print("rotation vector:", earth.rotation.as_rotvec())
+print("quaternion:", earth.rotation.as_quat())
+
+print("mer_def_a:")
+print("location:", mer_def_a.location)
+print("rotation vector:", mer_def_a.rotation.as_rotvec())
+print("quaternion:", mer_def_a.rotation.as_quat())
+
+print("mer_def_b:")
+print("location:", mer_def_b.location)
+print("rotation vector:", mer_def_b.rotation.as_rotvec())
+print("quaternion:", mer_def_b.rotation.as_quat())
+
+print("mer:")
+print("location:", mer.location)
+print("rotation vector:", mer.rotation.as_rotvec())
+print("quaternion:", mer.rotation.as_quat())
+
