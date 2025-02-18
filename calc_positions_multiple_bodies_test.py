@@ -1,7 +1,9 @@
 """
 Test script showing how to set up multiple object(planet) system.
 Can specify the datetime or degrees for how to move the planets.
-The test agrees with the Tychosium - both planet locations and quaternions were tested.
+Calculates RA and DEC of planet directly.
+The test agrees with the Tychosium.
+
 """
 from scipy.spatial.transform import Rotation as R
 from skyfield.api import load
@@ -46,6 +48,7 @@ class PlanetObj:
         move_planet
         move_planet_basic
         add_child
+        radec_direct
 
     Notes
     -----
@@ -113,6 +116,22 @@ class PlanetObj:
         """
         self.children += [child_obj]
 
+    def radec_direct(self):
+        """
+        Calculate RA and DEC for the current location of the planet. It uses direct coordinate
+        transformation to the earth rotational axis/plane to calculate RA and DEC.
+        :return: tuple - (ra, dec)
+            ra is calculated in hours (and fractions of hours)
+            dec is calculated in degrees (and fractions of degrees)
+        """
+        rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees = True)
+        unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+        loc_prime = np.dot(unit_prime, self.location)
+        dec = 90 - (np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime))) * 180 / np.pi)
+        ra = (np.sign(loc_prime[0]) *
+              np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
+        ra = ra * 12 / np.pi
+        return (ra, dec)
 
 ### Check for 2 planet system, parameters arbitrary for full parameter scope coverage,
 # both quaternions and positions agree with tychosium
@@ -208,7 +227,6 @@ earth.move_planet_tt(t)
 mer_def_a.move_planet_tt(t)
 mer_def_b.move_planet_tt(t)
 mer.move_planet_tt(t)
-print("")
 
 print("earth:")
 print("location:", earth.location)
@@ -229,4 +247,32 @@ print("mercury:")
 print("location:", mer.location)
 print("rotation vector:", mer.rotation.as_rotvec())
 print("quaternion:", mer.rotation.as_quat())
+
+### Check RA DEC calculation, tested to agree with Tychosium
+
+earth = PlanetObj( 0.0, OrbitCenter(0, 0, 0),
+                      OrbitTilt(0, 0), 0, -0.0002479160869310127)
+# note that Earth is set to be immovable and located at (0, 0, 0)
+mer_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
+                      OrbitTilt(0, 0), 0, 2 * np.pi)
+mer_def_b = PlanetObj(0, OrbitCenter(0, 0, 0),
+                      OrbitTilt(-1.3, 0.5), 33, -2 * np.pi)
+mer = PlanetObj(38.710225, OrbitCenter(0.6, 3, -0.1),
+                OrbitTilt(3, 0.5), -180.8, 26.08763045)
+
+earth.add_child(mer_def_a)
+mer_def_a.add_child(mer_def_b)
+mer_def_b.add_child(mer)
+
+position = 0.0
+
+earth.move_planet_basic(90)
+earth.move_planet(position)
+mer_def_a.move_planet(position)
+mer_def_b.move_planet(position)
+mer.move_planet(position)
+
+(ra_, dec_) = mer.radec_direct()
+
+print("\nmercury declination (degrees):", dec_, ", RA (hours):", ra_)
 
