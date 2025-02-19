@@ -1,12 +1,12 @@
 """
 Test script showing how to set up multiple object(planet) system.
 Can specify the datetime or degrees for how to move the planets.
-Calculates RA and DEC of planet directly.
+Calculates RA and DEC of planet directly and using Skyfield Astrometric position.
 The test agrees with the Tychosium.
 
 """
 from scipy.spatial.transform import Rotation as R
-from skyfield.api import load
+from skyfield.api import load, Angle
 from skyfield.positionlib import Astrometric
 import numpy as np
 
@@ -58,8 +58,8 @@ class PlanetObj:
     speed = 1/period(years) * 2pi, represents rotation radians per year
     """
 
-    def __init__(self, orbit_radius = 100.0, orbit_center = OrbitCenter(),
-                 orbit_tilt = OrbitTilt(), start_pos = 20.0, speed = 0.0):
+    def __init__(self, orbit_radius=100.0, orbit_center=OrbitCenter(),
+                 orbit_tilt=OrbitTilt(), start_pos=20.0, speed=0.0):
 
         self.start_pos = start_pos
         self.rotation = (R.from_euler('x', orbit_tilt.x, degrees = True) *
@@ -104,7 +104,7 @@ class PlanetObj:
             Position in degrees to rotate around y-axis
         :return: none
         """
-        self.rotation = self.rotation * R.from_euler('y', pos, degrees = True)
+        self.rotation = self.rotation * R.from_euler('y', pos, degrees=True)
         radius_rotated = self.rotation.apply(self.radius_vec)
         self.location = self.center + radius_rotated
 
@@ -123,8 +123,8 @@ class PlanetObj:
         """
         Calculate RA and DEC for the current location of the planet. It uses direct coordinate
         transformation to the earth rotational axis/plane to calculate RA and DEC.
-        Only works for static earth.
-        :return: tuple - (ra, dec, dist)
+        Only works for static earth, located at position (0,0,0).
+        :return: tuple[Angle, Angle, Float] - (ra, dec, dist)
             ra is calculated in hours (and fractions of hours)
             dec is calculated in degrees (and fractions of degrees)
             dist is the distance to the planet from earth in AU
@@ -132,12 +132,13 @@ class PlanetObj:
         rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees=True)
         unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location)
-        dec = 90 - (np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime))) * 180 / np.pi)
+        dec = np.pi / 2 - np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime)))
+        dec = Angle(radians=dec, preference='degrees')
         ra = (np.sign(loc_prime[0]) *
               np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
-        ra = ra * 12 / np.pi
         if ra < 0:
-            ra += 24
+            ra += 2 * np.pi
+        ra = Angle(radians=ra, preference='hours')
         dist = np.linalg.norm(self.location) / 100
         return (ra, dec, dist)
 
@@ -145,10 +146,10 @@ class PlanetObj:
         """
         Calculate ra, dec, distance using target position vector as seen from observer.
         No time of light travel or other adjustments applied.
-        TODO: express RA and DEC fractional parts properly, check Astrometric construct
+        TODO: check Astrometric construct from position versus skyfield default calculation.
         :param time: Time
             time when the positions and radec are calculated, instantaneous
-        :return: Tuple
+        :return: Tuple[Angle, Angle, Distance]
             ra, dec, distance from observer to target
         """
         r1 = R.from_euler('ZXY', [-23.439062, 0.26, 90], degrees=True)  # intrinsic rotation
@@ -296,9 +297,9 @@ mer_def_a.move_planet_tt(t)
 mer_def_b.move_planet_tt(t)
 mer.move_planet_tt(t)
 
-print("\n", t.tt_strftime())
+print("\nMercury:", t.tt_strftime())
 (ra_, dec_, dist_) = mer.radec_direct()
-print("Mercury RA (hours):", ra_, ", Declination (degrees):", dec_, ",Dist (AU):", dist_)
+print("Direct, RA (hours):", ra_, ", Declination (degrees):", dec_, ",Dist (AU):", dist_)
 print(mer.radec(t))
 
 ##### Add Jupiter, test RA DEC between Skyfield and Tychosium
@@ -334,8 +335,8 @@ print("location:", jupiter.location)
 print("rotation vector:", jupiter.rotation.as_rotvec())
 print("quaternion:", jupiter.rotation.as_quat())
 
-print("\n", t.tt_strftime())
+print("\nJupiter:", t.tt_strftime())
 (ra_, dec_, dist_) = jupiter.radec_direct()
-print("Jupiter RA (hours):", ra_, ", Declination (degrees):", dec_, ", Dist (AU):", dist_)
+print("Direct, RA (hours):", ra_, ", Declination (degrees):", dec_, ", Dist (AU):", dist_)
 print(jupiter.radec(t))
 
