@@ -7,7 +7,9 @@ The test agrees with the Tychosium.
 """
 from scipy.spatial.transform import Rotation as R
 from skyfield.api import load
+from skyfield.positionlib import Astrometric
 import numpy as np
+
 
 class OrbitCenter:
     """
@@ -116,22 +118,44 @@ class PlanetObj:
         """
         self.children += [child_obj]
 
+
     def radec_direct(self):
         """
         Calculate RA and DEC for the current location of the planet. It uses direct coordinate
         transformation to the earth rotational axis/plane to calculate RA and DEC.
-        :return: tuple - (ra, dec)
+        Only works for static earth.
+        :return: tuple - (ra, dec, dist)
             ra is calculated in hours (and fractions of hours)
             dec is calculated in degrees (and fractions of degrees)
+            dist is the distance to the planet from earth in AU
         """
-        rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees = True)
+        rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees=True)
         unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location)
         dec = 90 - (np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime))) * 180 / np.pi)
         ra = (np.sign(loc_prime[0]) *
               np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
         ra = ra * 12 / np.pi
-        return (ra, dec)
+        if ra < 0:
+            ra += 24
+        dist = np.linalg.norm(self.location) / 100
+        return (ra, dec, dist)
+
+    def radec(self, time):
+        """
+        Calculate ra, dec, distance using target position vector as seen from observer.
+        No time of light travel or other adjustments applied.
+        TODO: express RA and DEC fractional parts properly, check Astrometric construct
+        :param time: Time
+            time when the positions and radec are calculated, instantaneous
+        :return: Tuple
+            ra, dec, distance from observer to target
+        """
+        r1 = R.from_euler('ZXY', [-23.439062, 0.26, 90], degrees=True)  # intrinsic rotation
+        r2 = R.from_euler('yx', [-90, 90], degrees=True)  # extrinsic to align axis with Skyfield
+        loc_new = (r2 * r1).apply(self.location) / 100
+        astrometric = Astrometric(loc_new, np.array([0, 0, 0]), time)
+        return astrometric.radec()
 
 ### Check for 2 planet system, parameters arbitrary for full parameter scope coverage,
 # both quaternions and positions agree with tychosium
@@ -249,7 +273,6 @@ print("rotation vector:", mer.rotation.as_rotvec())
 print("quaternion:", mer.rotation.as_quat())
 
 ### Check RA DEC calculation, tested to agree with Tychosium
-
 earth = PlanetObj( 0.0, OrbitCenter(0, 0, 0),
                       OrbitTilt(0, 0), 0, -0.0002479160869310127)
 # note that Earth is set to be immovable and located at (0, 0, 0)
@@ -264,15 +287,55 @@ earth.add_child(mer_def_a)
 mer_def_a.add_child(mer_def_b)
 mer_def_b.add_child(mer)
 
-position = 0.0
+ts = load.timescale()
+t = ts.tt(2024,9,21,16,0,30)
 
 earth.move_planet_basic(90)
-earth.move_planet(position)
-mer_def_a.move_planet(position)
-mer_def_b.move_planet(position)
-mer.move_planet(position)
+earth.move_planet_tt(t)
+mer_def_a.move_planet_tt(t)
+mer_def_b.move_planet_tt(t)
+mer.move_planet_tt(t)
 
-(ra_, dec_) = mer.radec_direct()
+print("\n", t.tt_strftime())
+(ra_, dec_, dist_) = mer.radec_direct()
+print("Mercury RA (hours):", ra_, ", Declination (degrees):", dec_, ",Dist (AU):", dist_)
+print(mer.radec(t))
 
-print("\nmercury declination (degrees):", dec_, ", RA (hours):", ra_)
+##### Add Jupiter, test RA DEC between Skyfield and Tychosium
+
+earth = PlanetObj( 0.0, OrbitCenter(0, 0, 0),
+                   OrbitTilt(0, 0), 0, -0.0002479160869310127)
+sun_def = PlanetObj(0.0, OrbitCenter(1.4, -0.6, 0.0),
+                    OrbitTilt(0.1, 0.0), 0.0, 0.0)
+sun = PlanetObj(100.0, OrbitCenter(1.2, -0.1, 0.0),
+                OrbitTilt(0.1, 0.0), 0.0, 2 * np.pi)
+jupiter_def = PlanetObj(0.0, OrbitCenter(0.0, 0.0, 0.0),
+                        OrbitTilt(0.0, 0.0), 53.0, -2 * np.pi)
+jupiter = PlanetObj(520.4, OrbitCenter(-32.0, -25.0, -1.0), OrbitTilt(0.0, -1.15),
+                    -11.0, 0.52992586)
+
+earth.add_child(sun_def)
+sun_def.add_child(sun)
+sun.add_child(jupiter_def)
+jupiter_def.add_child(jupiter)
+
+ts = load.timescale()
+t = ts.tt(1900,6,21,12,0,0)
+
+earth.move_planet_basic(90)
+earth.move_planet_tt(t)
+sun_def.move_planet_tt(t)
+sun.move_planet_tt(t)
+jupiter_def.move_planet_tt(t)
+jupiter.move_planet_tt(t)
+
+print("\nJupiter:")
+print("location:", jupiter.location)
+print("rotation vector:", jupiter.rotation.as_rotvec())
+print("quaternion:", jupiter.rotation.as_quat())
+
+print("\n", t.tt_strftime())
+(ra_, dec_, dist_) = jupiter.radec_direct()
+print("Jupiter RA (hours):", ra_, ", Declination (degrees):", dec_, ", Dist (AU):", dist_)
+print(jupiter.radec(t))
 
