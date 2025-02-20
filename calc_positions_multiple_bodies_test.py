@@ -275,7 +275,7 @@ print("quaternion:", mer.rotation.as_quat())
 
 ### Check RA DEC calculation, tested to agree with Tychosium
 earth = PlanetObj( 0.0, OrbitCenter(0, 0, 0),
-                      OrbitTilt(0, 0), 0, -0.0002479160869310127)
+                      OrbitTilt(0, 0), 0, 0)
 # note that Earth is set to be immovable and located at (0, 0, 0)
 mer_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
                       OrbitTilt(0, 0), 0, 2 * np.pi)
@@ -305,7 +305,7 @@ print(mer.radec(t))
 ##### Add Jupiter, test RA DEC between Skyfield and Tychosium
 
 earth = PlanetObj( 0.0, OrbitCenter(0, 0, 0),
-                   OrbitTilt(0, 0), 0, -0.0002479160869310127)
+                   OrbitTilt(0, 0), 0, 0)
 sun_def = PlanetObj(0.0, OrbitCenter(1.4, -0.6, 0.0),
                     OrbitTilt(0.1, 0.0), 0.0, 0.0)
 sun = PlanetObj(100.0, OrbitCenter(1.2, -0.1, 0.0),
