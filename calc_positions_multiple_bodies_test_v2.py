@@ -1,15 +1,14 @@
 """
-Test script showing how to set up multiple object(planet) system.
+Tychosium model implementation in Python.
 Can specify the datetime or degrees for how to move the planets.
 Calculates RA and DEC of planet directly and using Skyfield Astrometric position.
-The test agrees with the Tychosium.
+Compares RA, DEC with ones obtained in Skyfield for main objects.
 Uses updated Tychosium code as reference.
 """
 from scipy.spatial.transform import Rotation as R
 from skyfield.api import load, Angle
 from skyfield.positionlib import Astrometric
 import numpy as np
-
 
 class OrbitCenter:
     """
@@ -24,7 +23,7 @@ class OrbitTilt:
     """
     Data class to keep orbit tilt values
     """
-    def __init__(self, orbit_tilt_a=30.0, orbit_tilt_b=60.0):
+    def __init__(self, orbit_tilt_a=0.0, orbit_tilt_b=0.0):
         self.x = orbit_tilt_a
         self.z = orbit_tilt_b
 
@@ -139,7 +138,7 @@ class PlanetObj:
         unit_prime = polar_obj.rotation.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location - ref_obj.location)
         dec = np.pi / 2 - np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime)))
-        dec = Angle(radians=dec, preference='degrees')
+        dec = Angle(radians=dec, preference='degrees', signed=True)
         ra = (np.sign(loc_prime[0]) *
               np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
         if ra < 0:
@@ -173,7 +172,7 @@ class PlanetObj:
 ##### Compare to actual Skyfield positions, neglecting light travel time corrections ####
 
 ts = load.timescale()
-t = ts.tt(1900,6,21,12,0,0)
+t = ts.tt(2000,6,21,12,0,0)
 
 planets = load('de421.bsp')
 obs = planets["earth"]
@@ -182,61 +181,160 @@ print("\nt:", t.tt_strftime())
 
 earth = PlanetObj( 37.8453, OrbitCenter(0, 0, 0),
                       OrbitTilt(0, 0), 0, -0.0002479160869310127)
-polar_axis = PlanetObj( 0, OrbitCenter(0, 0, 0),
+polar_axis = PlanetObj(0, OrbitCenter(0, 0, 0),
                       OrbitTilt(0, 0), 0, 0.0)
-
-mer_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
-                      OrbitTilt(0, 0), 0, 2 * np.pi)
-mer_def_b = PlanetObj(0, OrbitCenter(0, 0, 0),
-                      OrbitTilt(-1.3, 0.5), 33, -2 * np.pi)
-mer = PlanetObj(38.710225, OrbitCenter(0.6, 3, -0.1),
-                OrbitTilt(3, 0.5), -180.8, 26.08763045)
 
 sun_def = PlanetObj(0.0, OrbitCenter(1.4, -0.6, 0.0),
                     OrbitTilt(0.1, 0.0), 0.0, 0.0)
 sun = PlanetObj(100.0, OrbitCenter(1.2, -0.1, 0.0),
                 OrbitTilt(0.1, 0.0), 0.0, 2 * np.pi)
+
+mercury_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
+                      OrbitTilt(0, 0), 0, 2 * np.pi)
+mercury_def_b = PlanetObj(0, OrbitCenter(0, 0, 0),
+                      OrbitTilt(-1.3, 0.5), 33, -2 * np.pi)
+mercury = PlanetObj(38.710225, OrbitCenter(0.6, 3, -0.1),
+                OrbitTilt(3, 0.5), -180.8, 26.08763045)
+
+m_factor = 39.2078
+moon_def_a = PlanetObj(0.0279352315075/m_factor, OrbitCenter(0/m_factor, 0/m_factor, 0/m_factor),
+                       OrbitTilt(-0.2, 0.5), 226.4, 0.71015440177343)
+moon_def_b = PlanetObj(0/m_factor, OrbitCenter(-0.38/m_factor, 0.22/m_factor, 0/m_factor),
+                       OrbitTilt(2.3, 2.6), -1.8, 0.0)
+moon = PlanetObj(10/m_factor, OrbitCenter(0.8/m_factor, -0.81/m_factor, -0.07/m_factor),
+                 OrbitTilt(-1.8, -2.6), 261.2, 83.28521)
+
+venus_def_a = PlanetObj(100, OrbitCenter(0.5, 0.5, 0),
+                        OrbitTilt(0, 0), 0, 2 * np.pi)
+venus_def_b = PlanetObj(0, OrbitCenter(0, 0.65, 0),
+                        OrbitTilt(0, 0), 16.6, -2 * np.pi)
+venus = PlanetObj(72.327789, OrbitCenter(0.6, -0.9, 0),
+                  OrbitTilt(3.2, -0.05), -23.6, 10.21331385)
+
+mars_def_e = PlanetObj(100, OrbitCenter(10.1, -20.7, 0),
+                       OrbitTilt(0, 0), 0, 2*np.pi)
+mars_def_s = PlanetObj(7.44385, OrbitCenter(0, 0, 0),
+                       OrbitTilt(0, 0), -115, 0.3974599)
+mars = PlanetObj(152.677, OrbitCenter(0, 0, 0),
+                 OrbitTilt(-0.2, -1.7), 119.3, -3.33985)
+
+phobos = PlanetObj(5, OrbitCenter(0, 0, 0),
+                   OrbitTilt(0, 0), 122, 6986.5)
+deimos = PlanetObj(10, OrbitCenter(0, 0, 0),
+                   OrbitTilt(0, 0), 0, 1802.0)
+
 jupiter_def = PlanetObj(0.0, OrbitCenter(0.0, 0.0, 0.0),
                         OrbitTilt(0.0, 0.0), 75.4, -2 * np.pi)
 jupiter = PlanetObj(520.4, OrbitCenter(-49.0, 3.0, -1.0), OrbitTilt(0.0, -1.2),
                     -34.0, 0.52994136)
 
+saturn_def = PlanetObj(20, OrbitCenter(11, 0, 0),
+                       OrbitTilt(0, 0), 518, -2 * np.pi)
+saturn = PlanetObj(958.2, OrbitCenter(69, 40, 0),
+                   OrbitTilt(-2.5, 0), -123.8, 0.21351984)
+
+uranus_def = PlanetObj(20, OrbitCenter(0, 0, 0),
+                       OrbitTilt(0, 0), 123, -2 * np.pi)
+uranus = PlanetObj(1920.13568, OrbitCenter(150, -65, 0),
+                   OrbitTilt(-0.2, -0.7), 371.8, 0.07500314)
+
+neptune_def = PlanetObj(20, OrbitCenter(0, 0, 0),
+                        OrbitTilt(0, 0), 175.2, -2 * np.pi)
+neptune = PlanetObj(3004.72, OrbitCenter(0, 20, 0),
+                    OrbitTilt(-1.6, 1.15), 329.3, 0.03837314)
+
+halleys_def = PlanetObj(20, OrbitCenter(-5, 10, 11),
+                        OrbitTilt(0, 0), 179, -2 * np.pi)
+halleys = PlanetObj(1674.5, OrbitCenter(-1540, -233.5, -507),
+                    OrbitTilt(6.4, 18.55), 76.33, -0.0830100973)
+
+eros_def_a = PlanetObj(100, OrbitCenter(-40, 31.5, -0.5),
+                       OrbitTilt(-7.3, 3.6), 0, 2 * np.pi)
+eros_def_b = PlanetObj(0, OrbitCenter(-16, -4.5, 0),
+                       OrbitTilt(0, 0), 0, -7.291563307179587)
+eros = PlanetObj(145.79, OrbitCenter(5.2, -6, 0),
+                 OrbitTilt(0, 0), 171.8, 4.57668492)
+
+d_pl = {'earth': earth, 'polar_axis': polar_axis, 'sun_def': sun_def, 'sun': sun,
+        'mercury_def_a': mercury_def_a, 'mercury_def_b': mercury_def_b, 'mercury': mercury,
+        'moon_def_a': moon_def_a, 'moon_def_b': moon_def_b, 'moon': moon,
+        'venus_def_a': venus_def_a, 'venus_def_b': venus_def_b, 'venus': venus,
+        'mars_def_e': mars_def_e, 'mars_def_s': mars_def_s, 'mars': mars,
+        'phobos': phobos, 'deimos': deimos, 'jupiter_def': jupiter_def, 'jupiter': jupiter,
+        'saturn_def': saturn_def, 'saturn': saturn,
+        'uranus_def': uranus_def, 'uranus': uranus,
+        'neptune_def': neptune_def, 'neptune': neptune,
+        'halleys_def': halleys_def, 'halleys': halleys,
+        'eros_def_a': eros_def_a, 'eros_def_b': eros_def_b, 'eros': eros}
+
+all_planets = ['earth', 'polar_axis', 'sun_def', 'sun', 'mercury_def_a', 'mercury_def_b', 'mercury',
+        'moon_def_a', 'moon_def_b', 'moon', 'venus_def_a', 'venus_def_b', 'venus',
+        'mars_def_e', 'mars_def_s', 'mars','phobos', 'deimos', 'jupiter_def', 'jupiter',
+        'saturn_def', 'saturn', 'uranus_def', 'uranus', 'neptune_def', 'neptune',
+        'halleys_def', 'halleys','eros_def_a', 'eros_def_b', 'eros']
+
+print_planets = ['sun', 'mercury', 'moon', 'venus', 'mars','phobos', 'deimos',
+                 'jupiter', 'saturn', 'uranus', 'neptune', 'halleys', 'eros']
+
+skyfield_map = {'sun': 'SUN', 'moon': 'MOON', 'earth': 'EARTH', 'mercury': 'MERCURY',
+                'venus': 'VENUS', 'mars': 'MARS', 'jupiter': 'JUPITER_BARYCENTER',
+                'saturn': 'SATURN_BARYCENTER', 'uranus': 'URANUS_BARYCENTER',
+                'neptune': 'NEPTUNE_BARYCENTER', 'pluto': 'PLUTO_BARYCENTER'}
+
 earth.add_child(polar_axis)
 
 earth.add_child(sun_def)
 sun_def.add_child(sun)
+
+earth.add_child(moon_def_a)
+moon_def_a.add_child(moon_def_b)
+moon_def_b.add_child((moon))
+
+earth.add_child(mercury_def_a)
+mercury_def_a.add_child(mercury_def_b)
+mercury_def_b.add_child(mercury)
+
+earth.add_child(venus_def_a)
+venus_def_a.add_child(venus_def_b)
+venus_def_b.add_child(venus)
+
+earth.add_child(mars_def_e)
+mars_def_e.add_child(mars_def_s)
+mars_def_s.add_child(mars)
+
+mars.add_child(phobos)
+mars.add_child(deimos)
+
 sun.add_child(jupiter_def)
 jupiter_def.add_child(jupiter)
 
-earth.add_child(mer_def_a)
-mer_def_a.add_child(mer_def_b)
-mer_def_b.add_child(mer)
+sun.add_child(saturn_def)
+saturn_def.add_child(saturn)
+
+sun.add_child(uranus_def)
+uranus_def.add_child(uranus)
+
+sun.add_child(neptune_def)
+neptune_def.add_child(neptune)
+
+sun.add_child(halleys_def)
+halleys_def.add_child(halleys)
+
+earth.add_child(eros_def_a)
+eros_def_a.add_child(eros_def_b)
+eros_def_b.add_child(eros)
 
 polar_axis.move_planet_basic([-23.439062, 0.26],'zx')
 earth.move_planet_basic(90)
 
-earth.move_planet_tt(t)
-polar_axis.move_planet_tt(t)
-mer_def_a.move_planet_tt(t)
-mer_def_b.move_planet_tt(t)
-mer.move_planet_tt(t)
-sun_def.move_planet_tt(t)
-sun.move_planet_tt(t)
-jupiter_def.move_planet_tt(t)
-jupiter.move_planet_tt(t)
+for p in all_planets:
+    d_pl[p].move_planet_tt(t)
 
-astrometric_ = barycentric.observe(planets["Mercury_BARYCENTER"])
-print("\nMercury Skyfield    :", astrometric_.radec())
-print("Mercury Tyhos       :", mer.radec(t, earth, polar_axis))
-print("Mercury Tyhos direct:", mer.radec_direct(earth, polar_axis))
-print("location:", mer.location)
-print("rotation vector:", mer.rotation.as_rotvec())
-print("quaternion:", mer.rotation.as_quat())
-
-astrometric_ = barycentric.observe(planets["Jupiter_BARYCENTER"])
-print("\nJupiter Skyfield    :", astrometric_.radec())
-print("Jupiter Tyhos       :", jupiter.radec(t, earth, polar_axis))
-print("Jupiter Tyhos direct:", jupiter.radec_direct(earth, polar_axis))
-print("location:", jupiter.location)
-print("rotation vector:", jupiter.rotation.as_rotvec())
-print("quaternion:", jupiter.rotation.as_quat())
+for p in print_planets:
+    print("\n", p)
+    print("Tyhos       :", d_pl[p].radec(t, earth, polar_axis))
+    print("Tyhos direct:", d_pl[p].radec_direct(earth, polar_axis))
+    if p in skyfield_map:
+        print("Skyfield    :", barycentric.observe(planets[skyfield_map[p]]).radec())
+    print("location:", d_pl[p].location)
+    print("quaternion:", d_pl[p].rotation.as_quat())
