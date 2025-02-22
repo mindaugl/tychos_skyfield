@@ -10,22 +10,27 @@ from skyfield.api import load, Angle
 from skyfield.positionlib import Astrometric
 import numpy as np
 
+
 class OrbitCenter:
     """
     Data class to keep orbit center coordinates
     """
-    def __init__(self, orbit_center_a = 0.0, orbit_center_b = 0.0, orbit_center_c = 0.0):
+
+    def __init__(self, orbit_center_a=0.0, orbit_center_b=0.0, orbit_center_c=0.0):
         self.x = orbit_center_a
         self.y = orbit_center_c
         self.z = orbit_center_b
+
 
 class OrbitTilt:
     """
     Data class to keep orbit tilt values
     """
+
     def __init__(self, orbit_tilt_a=0.0, orbit_tilt_b=0.0):
         self.x = orbit_tilt_a
         self.z = orbit_tilt_b
+
 
 class PlanetObj:
     """
@@ -62,15 +67,14 @@ class PlanetObj:
                  orbit_tilt=OrbitTilt(), start_pos=20.0, speed=0.0):
 
         self.start_pos = start_pos
-        self.rotation = (R.from_euler('x', orbit_tilt.x, degrees = True) *
-                          R.from_euler('z', orbit_tilt.z, degrees = True))
+        self.rotation = (R.from_euler('x', orbit_tilt.x, degrees=True) *
+                         R.from_euler('z', orbit_tilt.z, degrees=True))
         self.location = np.array([0.0, 0.0, 0.0])
         self.center = (np.array([orbit_center.x, orbit_center.y, orbit_center.z]).
                        astype(np.float64))
         self.radius_vec = np.array([orbit_radius, 0.0, 0.0])
         self.speed = speed / (2 * np.pi)
         self.children = []
-        # self.pos = 0.0
 
     def move_planet_tt(self, time):
         """
@@ -80,8 +84,8 @@ class PlanetObj:
             Skyfield Time terrestrial time value to which to move the planet
         :return: none
         """
-        pos = (time.tt - 2451717.0)/365.2425 * 360
-            # 2451717 is reference Julian Date tt for date 2000-6-21 12:00:00
+        pos = (time.tt - 2451717.0) / 365.2425 * 360
+        # 2451717 is reference Julian Date tt for date 2000-6-21 12:00:00
         self.move_planet(pos)
 
     def move_planet(self, pos):
@@ -97,7 +101,7 @@ class PlanetObj:
             child.rotation = self.rotation * child.rotation
             child.center = self.center + self.rotation.apply(self.radius_vec + child.center)
 
-    def move_planet_basic(self, pos, directions = 'y'):
+    def move_planet_basic(self, pos, directions='y'):
         """
         Moves planet by specified pos, assuming self.speed = 0 and self.start_pos = 0.
         Can call this function multiple times - it does not modify children.
@@ -121,21 +125,33 @@ class PlanetObj:
         """
         self.children += [child_obj]
 
-    def radec_direct(self, ref_obj, polar_obj):
+    def radec_direct(self, ref_obj, polar_obj, epoch='j2000'):
         """
-        Calculate RA and DEC for the current location of the planet. It uses direct coordinate
-        transformation to the earth rotational axis/plane to calculate RA and DEC.
+        Calculate RA and DEC for the current location of the planet. It uses projects planet
+        location to the appropriate ref frame for the epoch
         :param ref_obj: PlanetObj
             reference object with respect to which calculate RA and DEC, typically earth
         :param polar_obj: PlanetObj
             reference object that contains transformation for polar axis frame which
             is used to calculate RA, DEC
+            Only required for the epoch = 'date'
+        :param epoch: Optional[String]: 'j2000'(default) or 'date'
+            epoch specifies which 'time' is used for ra/dec calculation. 'j2000' corresponds
+            to J2000(or ICRF), while 'date' is frame associated with current time
         :return: tuple[Angle, Angle, Float] - (ra, dec, dist)
             ra is calculated in hours (and fractions of hours)
             dec is calculated in degrees (and fractions of degrees)
             dist is the distance to the planet from earth in AU
         """
-        unit_prime = polar_obj.rotation.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+        if epoch == 'j2000':
+            rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees=True)
+        elif epoch == 'date':
+            rot = polar_obj.rotation
+        else:
+            raise AttributeError("Unknown epoch provided: " + epoch +
+                            ". Only epochs 'j2000' and 'date' are supported." )
+
+        unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location - ref_obj.location)
         dec = np.pi / 2 - np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime)))
         dec = Angle(radians=dec, preference='degrees', signed=True)
@@ -147,10 +163,10 @@ class PlanetObj:
         dist = np.linalg.norm(loc_prime) / 100
         return ra, dec, dist
 
-    def radec(self, time, ref_obj, polar_obj):
+    def radec(self, time, ref_obj, polar_obj, epoch='j2000'):
         """
         Calculate ra, dec, distance using target position vector as seen from observer
-        using Skyfield.
+        using Skyfield Astrometric position.
         No time of light travel adjustments applied (that are applied in Skyfield by default).
         Agrees with radec_direct() function.
         :param time: Time
@@ -160,11 +176,23 @@ class PlanetObj:
         :param polar_obj: PlanetObj
             reference object that contains transformation for polar axis frame to
             which Tychos coordinates are transformed to pass to the Skyfield
+            Only required for the epoch = 'date'
+        :param epoch: Optional[String]: 'j2000'(default) or 'date'
+            epoch specifies which 'time' is used for ra/dec calculation. 'j2000' corresponds
+            to J2000(or ICRF), while 'date' is frame associated with current time
         :return: Tuple[Angle, Angle, Distance]
             ra, dec, distance from observer to target
         """
-        r1 = polar_obj.rotation.inv()
-        r2 = R.from_euler('zy', [90, 90], degrees=True)  # extrinsic to align axis with Skyfield
+        if epoch == 'j2000':
+            r1 = R.from_euler('ZXY', [-23.439062, 0.26, 90], degrees=True) # intrinsic rotation
+            r2 = R.from_euler('yx', [-90, 90], degrees=True) # extrinsic to align axis with Skyfield
+        elif epoch == 'date':
+            r1 = polar_obj.rotation.inv()
+            r2 = R.from_euler('zy', [90, 90], degrees=True) # extrinsic to align axis with Skyfield
+        else:
+            raise AttributeError("Unknown epoch provided: " + epoch +
+                            ". Only epochs 'j2000' and 'date' are supported." )
+
         loc_new = (r2 * r1).apply(self.location - ref_obj.location) / 100
         astrometric = Astrometric(loc_new, np.array([0, 0, 0]), time)
         return astrometric.radec()
@@ -172,17 +200,18 @@ class PlanetObj:
 ##### Compare to actual Skyfield positions, neglecting light travel time corrections ####
 
 ts = load.timescale()
-t = ts.tt(2000,6,21,12,0,0)
+t = ts.tt(1000, 6, 21, 12, 0, 0)
 
-planets = load('de421.bsp')
+# planets = load('de421.bsp')
+planets = load('de422.bsp')
 obs = planets["earth"]
 barycentric = obs.at(t)
 print("\nt:", t.tt_strftime())
 
-earth = PlanetObj( 37.8453, OrbitCenter(0, 0, 0),
-                      OrbitTilt(0, 0), 0, -0.0002479160869310127)
+earth = PlanetObj(37.8453, OrbitCenter(0, 0, 0),
+                  OrbitTilt(0, 0), 0, -0.0002479160869310127)
 polar_axis = PlanetObj(0, OrbitCenter(0, 0, 0),
-                      OrbitTilt(0, 0), 0, 0.0)
+                       OrbitTilt(0, 0), 0, 0.0)
 
 sun_def = PlanetObj(0.0, OrbitCenter(1.4, -0.6, 0.0),
                     OrbitTilt(0.1, 0.0), 0.0, 0.0)
@@ -190,18 +219,19 @@ sun = PlanetObj(100.0, OrbitCenter(1.2, -0.1, 0.0),
                 OrbitTilt(0.1, 0.0), 0.0, 2 * np.pi)
 
 mercury_def_a = PlanetObj(100, OrbitCenter(-6.9, -3.2, 0),
-                      OrbitTilt(0, 0), 0, 2 * np.pi)
+                          OrbitTilt(0, 0), 0, 2 * np.pi)
 mercury_def_b = PlanetObj(0, OrbitCenter(0, 0, 0),
-                      OrbitTilt(-1.3, 0.5), 33, -2 * np.pi)
+                          OrbitTilt(-1.3, 0.5), 33, -2 * np.pi)
 mercury = PlanetObj(38.710225, OrbitCenter(0.6, 3, -0.1),
-                OrbitTilt(3, 0.5), -180.8, 26.08763045)
+                    OrbitTilt(3, 0.5), -180.8, 26.08763045)
 
 m_factor = 39.2078
-moon_def_a = PlanetObj(0.0279352315075/m_factor, OrbitCenter(0/m_factor, 0/m_factor, 0/m_factor),
+moon_def_a = PlanetObj(0.0279352315075 / m_factor,
+                       OrbitCenter(0 / m_factor, 0 / m_factor, 0 / m_factor),
                        OrbitTilt(-0.2, 0.5), 226.4, 0.71015440177343)
-moon_def_b = PlanetObj(0/m_factor, OrbitCenter(-0.38/m_factor, 0.22/m_factor, 0/m_factor),
+moon_def_b = PlanetObj(0 / m_factor, OrbitCenter(-0.38 / m_factor, 0.22 / m_factor, 0 / m_factor),
                        OrbitTilt(2.3, 2.6), -1.8, 0.0)
-moon = PlanetObj(10/m_factor, OrbitCenter(0.8/m_factor, -0.81/m_factor, -0.07/m_factor),
+moon = PlanetObj(10 / m_factor, OrbitCenter(0.8 / m_factor, -0.81 / m_factor, -0.07 / m_factor),
                  OrbitTilt(-1.8, -2.6), 261.2, 83.28521)
 
 venus_def_a = PlanetObj(100, OrbitCenter(0.5, 0.5, 0),
@@ -212,7 +242,7 @@ venus = PlanetObj(72.327789, OrbitCenter(0.6, -0.9, 0),
                   OrbitTilt(3.2, -0.05), -23.6, 10.21331385)
 
 mars_def_e = PlanetObj(100, OrbitCenter(10.1, -20.7, 0),
-                       OrbitTilt(0, 0), 0, 2*np.pi)
+                       OrbitTilt(0, 0), 0, 2 * np.pi)
 mars_def_s = PlanetObj(7.44385, OrbitCenter(0, 0, 0),
                        OrbitTilt(0, 0), -115, 0.3974599)
 mars = PlanetObj(152.677, OrbitCenter(0, 0, 0),
@@ -268,12 +298,12 @@ d_pl = {'earth': earth, 'polar_axis': polar_axis, 'sun_def': sun_def, 'sun': sun
         'eros_def_a': eros_def_a, 'eros_def_b': eros_def_b, 'eros': eros}
 
 all_planets = ['earth', 'polar_axis', 'sun_def', 'sun', 'mercury_def_a', 'mercury_def_b', 'mercury',
-        'moon_def_a', 'moon_def_b', 'moon', 'venus_def_a', 'venus_def_b', 'venus',
-        'mars_def_e', 'mars_def_s', 'mars','phobos', 'deimos', 'jupiter_def', 'jupiter',
-        'saturn_def', 'saturn', 'uranus_def', 'uranus', 'neptune_def', 'neptune',
-        'halleys_def', 'halleys','eros_def_a', 'eros_def_b', 'eros']
+               'moon_def_a', 'moon_def_b', 'moon', 'venus_def_a', 'venus_def_b', 'venus',
+               'mars_def_e', 'mars_def_s', 'mars', 'phobos', 'deimos', 'jupiter_def', 'jupiter',
+               'saturn_def', 'saturn', 'uranus_def', 'uranus', 'neptune_def', 'neptune',
+               'halleys_def', 'halleys', 'eros_def_a', 'eros_def_b', 'eros']
 
-print_planets = ['sun', 'mercury', 'moon', 'venus', 'mars','phobos', 'deimos',
+print_planets = ['sun', 'mercury', 'moon', 'venus', 'mars', 'phobos', 'deimos',
                  'jupiter', 'saturn', 'uranus', 'neptune', 'halleys', 'eros']
 
 skyfield_map = {'sun': 'SUN', 'moon': 'MOON', 'earth': 'EARTH', 'mercury': 'MERCURY',
@@ -324,7 +354,7 @@ earth.add_child(eros_def_a)
 eros_def_a.add_child(eros_def_b)
 eros_def_b.add_child(eros)
 
-polar_axis.move_planet_basic([-23.439062, 0.26],'zx')
+polar_axis.move_planet_basic([-23.439062, 0.26], 'zx')
 earth.move_planet_basic(90)
 
 for p in all_planets:
@@ -332,9 +362,14 @@ for p in all_planets:
 
 for p in print_planets:
     print("\n", p)
-    print("Tyhos       :", d_pl[p].radec(t, earth, polar_axis))
-    print("Tyhos direct:", d_pl[p].radec_direct(earth, polar_axis))
+    print("Tyhos             :", d_pl[p].radec(t, earth, polar_axis, 'date'))
+    print("Tyhos direct      :", d_pl[p].radec_direct(earth, polar_axis, 'date'))
+    print("Tyhos j2000       :", d_pl[p].radec(t, earth, 'j2000'))
+    print("Tyhos direct j2000:", d_pl[p].radec_direct(earth, 'j2000'))
     if p in skyfield_map:
-        print("Skyfield    :", barycentric.observe(planets[skyfield_map[p]]).radec())
+        print("Skyfield epoch 'date':", barycentric.observe(planets[skyfield_map[p]]).radec('date'))
+        print("Skyfield epoch ICRF  :", barycentric.observe(planets[skyfield_map[p]]).radec())
+        print("Skyfield epoch J2000 :",
+              barycentric.observe(planets[skyfield_map[p]]).radec(ts.J2000))
     print("location:", d_pl[p].location)
     print("quaternion:", d_pl[p].rotation.as_quat())
