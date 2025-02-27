@@ -66,7 +66,6 @@ class PlanetObj:
         self.start_pos = start_pos
         self.speed = speed / (2 * np.pi)
         self.children = []
-        self.parent_system = None
 
         self.rotation = None
         self.location = None
@@ -149,22 +148,27 @@ class PlanetObj:
             reference object that contains transformation for polar axis frame which
             is used to calculate RA, DEC.
             Only required for the epoch = 'date'
-        :param epoch: Optional[String]: 'j2000'(default) or 'date'
+        :param epoch: Optional[String]: 'j2000'(default), 'j2000June' or 'date'
             epoch specifies which 'time' is used for ra/dec calculation. 'j2000' corresponds
-            to J2000(or ICRF), while 'date' is frame associated with current time
+            to J2000 (and roughly to ICRF), 'date' is frame associated with current time
         :return: tuple[String, String, Float] - (ra, dec, dist)
             ra is calculated in hours
             dec is calculated in degrees
             dist is the distance to the planet from the ref_obj in AU
+        NOTE: 'j2000' epoch rotation is obtained by manually getting rotation quaternion of
+        polar axis for the date 2000/01/01 12:00
         """
 
         if epoch == 'j2000':
+            rot = R.from_quat([-0.1420654722633656, 0.6927306657799285, -0.14519055921306223,
+                               0.6919980692126839])
+        elif epoch == 'j2000June':
             rot = R.from_euler('zxy', [-23.439062, 0.26, 90], degrees=True)
         elif epoch == 'date':
             rot = polar_obj.rotation
         else:
             raise AttributeError("Unknown epoch provided: " + epoch +
-                            ". Only epochs 'j2000' and 'date' are supported." )
+                            ". Only epochs 'j2000', 'j2000June' and 'date' are supported." )
 
         unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location - ref_obj.location)
@@ -196,15 +200,21 @@ class PlanetObj:
             reference object that contains transformation for polar axis frame that is used in
             Tychos for the RA/DEC calculation.
             Only required for the epoch = 'date'
-        :param epoch: Optional[String]: 'j2000'(default) or 'date'
+        :param epoch: Optional[String]: 'j2000'(default), 'j2000June' or 'date'
             epoch specifies which 'time' is used for reference frame rotation. 'j2000' corresponds
-            to J2000 (ICRF frame), while 'date' is frame associated with current time
-            polar axis direction
+            to J2000 (and roughly to the ICRF frame), while 'date' is frame associated with
+            current time polar axis direction
         :return: ndarry[float, float, float]
             Location vector in the new rotated reference frame
+        NOTE: 'j2000' epoch rotation is obtained by manually getting rotation quaternion of
+        polar axis for the date 2000/01/01 12:00
         """
 
         if epoch == 'j2000':
+            r1 = R.from_quat([-0.1420654722633656, 0.6927306657799285, -0.14519055921306223,
+                              0.6919980692126839]).inv()
+            r2 = R.from_euler('zy', [90, 90], degrees=True)
+        elif epoch == 'j2000June':
             r1 = R.from_euler('ZXY', [-23.439062, 0.26, 90], degrees=True)
             r2 = R.from_euler('yx', [-90, 90], degrees=True)
         elif epoch == 'date':
@@ -212,7 +222,7 @@ class PlanetObj:
             r2 = R.from_euler('zy', [90, 90], degrees=True)
         else:
             raise AttributeError("Unknown epoch provided: " + epoch +
-                            ". Only epochs 'j2000' and 'date' are supported." )
+                            ". Only epochs 'j2000', 'j2000June' and 'date' are supported." )
 
         loc = (r2 * r1).apply(self.location - ref_obj.location) / 100
         return loc
@@ -405,7 +415,6 @@ class TychosSystem:
         self.julian_day = julian_day
         for p in self.all_objects:
             self.d_pl[p].initialize_orbit_parameters()
-            self.d_pl[p].parent_system = self
 
         self.polar_axis.move_planet_basic([-23.439062, 0.26], 'zx')
         self.earth.move_planet_basic(90)
