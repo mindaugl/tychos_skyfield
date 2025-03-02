@@ -142,19 +142,20 @@ class PlanetObj:
 
         self.children += [child_obj]
 
-    def radec_direct(self, ref_obj, polar_obj, epoch='j2000'):
+    def radec_direct(self, ref_obj, polar_obj=None, epoch='j2000'):
         """
         Calculate RA and DEC for the current location of the planet. It uses projects planet
         location to the appropriate ref frame for the epoch
         :param ref_obj: PlanetObj
             reference object with respect to which calculate RA and DEC, typically earth
-        :param polar_obj: PlanetObj
+        :param polar_obj: Optional[PlanetObj] = None
             reference object that contains transformation for polar axis frame which
             is used to calculate RA, DEC.
             Only required for the epoch = 'date'
         :param epoch: Optional[String]: 'j2000'(default), 'j2000June' or 'date'
             epoch specifies which 'time' is used for ra/dec calculation. 'j2000' corresponds
-            to J2000 (and roughly to ICRF), 'date' is frame associated with current time
+            to J2000 (and roughly to ICRF), 'j2000June' corresponds to the 2000/06/21 12:00:00 date
+             and 'date' is frame associated with current time
         :return: tuple[String, String, Float] - (ra, dec, dist)
             ra is calculated in hours
             dec is calculated in degrees
