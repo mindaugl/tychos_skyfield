@@ -1,9 +1,51 @@
 """
 Library containing Tychos object interface with Skyfield.
 """
+
 from skyfield.vectorlib import VectorFunction
 from numpy import array
 from tychosbaselib import TychosSystem
+
+class ReferencePlanet():
+    """
+    Class for reference objects definition - used for getting both Tychos and Skyfield
+    reference objects.
+    ref_name: string, Tychos reference name
+    skyfield_objs: skyfield.jpllib.SpiceKernel, container of Skyfield objects
+    skyfield_name: Optional[string] = None, Skyfield reference name to be used directly
+
+    Attributes
+    ----------
+    name
+    skyfield_objs
+    skyfield_name
+    skyfield_obj
+
+    """
+    def __init__(self, name, skyfield_objs, skyfield_name = None):
+        self.name = name.lower()
+        self.skyfield_objs = skyfield_objs
+        self.skyfield_name = skyfield_name
+        self.skyfield_obj = self._get_skyfield_obj()
+    def _get_skyfield_obj(self):
+        """
+        Get Skyfield object to be used as reference in TychosSkyfield
+        :return: skyfield.vectorlib.VectorSum
+            Skyfield object associated with the ref_name (or skyfield_name)
+        """
+        if self.skyfield_name is None:
+            skyfield_names_dict = self.skyfield_objs.names()
+            skyfield_names = list(skyfield_names_dict.values())
+            skyfield_names = [x.lower() for xs in skyfield_names for x in xs]
+            if self.name in skyfield_names:
+                self.skyfield_name = self.name
+            elif f"{self.name}_barycenter" in skyfield_names:
+                self.skyfield_name = f"{self.name}_barycenter"
+            else:
+                raise AttributeError(f"There does not seem to be skyfield object associated "
+                                     f"with the tychos object {self.name}. "
+                                     f"All available skyfield objects: {skyfield_names}")
+        return self.skyfield_objs[self.skyfield_name]
 
 
 class TychosSkyfield(VectorFunction, TychosSystem):
@@ -11,90 +53,74 @@ class TychosSkyfield(VectorFunction, TychosSystem):
     Class that can be used to create tychos object in Skyfield that can be as Skyfield
     native object.
     To initialize the class, need to provide:
-        - name_tychos: string in the format of "'name'_tychos" where 'name' is the name of
-        object, e.g., for jupiter, it is 'jupiter_tychos'.
-        - ref_name_tychos: string for the tychos object which to use as reference, e.g.,
-        'earth_tychos'
-        - ref_obj_skyfield: 'skyfield.positionlib.Barycentric' object corresponding to the
-        Barycentric position of reference object in Skyfield. It can be obtained, e.g.,
-        for earth, by calling: skyfield.api.load('de421.bsp')['earth']
+        - name: string for the object name in Tychos
+        - ref_name: string name for the tychos object which to use as reference
+        - ref_obj: ReferencePlanet object for reference name in Tychos and associated
+        object in Skyfield
 
     Attributes
     ----------
     center
-    name
     target
-    ref_obj_skyfield
+    name
+    ref_obj
 
     Methods
     -------
-    get_all_objects
-    get_observable_objects
+    at
+    native_object
 
     NOTE: Some Skyfield routines make multiple calls for _.at() for different times.
     At the end the state will be at last called time (can be checked via self.julian_day)
-
     """
 
-    def __init__(self, name_tychos, ref_name_tychos, ref_obj_skyfield, center=0):
+    def __init__(self, name, ref_obj, center=0):
         self.center = center
         self.target = None
-        self.name = name_tychos
-        self._name_native = self._tychos_native_name(name_tychos)
-        self._ref_name_native = self._tychos_native_name(ref_name_tychos)
-        self.ref_obj_skyfield = ref_obj_skyfield
+        self.name = name
+        self.ref_obj = ref_obj
         super().__init__()
 
-    def __str__(self):
-        return f"TychosSkyfield, all observable objects are: {self.get_observable_objects()}."
-
-    def _tychos_native_name(self, name_string):
-        """
-        Take name_string which is of form 'name_tychos' and return 'name' for the pure
-        Tychos library routines
-        :param name_string: string
-        :return: string
-        """
-
-        try:
-            name, end = name_string.split("_")
-            assert end.lower() == "tychos"
-        except Exception as e:
-            raise AttributeError(f"Unknown Tychos object {name_string}, "
-                                 f"all possible objects are {self.get_all_objects()}.") from e
-        return name
-
-    def _at(self, time):
+    def _at(self, t):
         """
         Evaluate relative position to the tychos ref object and add skyfield ref object position.
-        :param time: skyfield.timelib.Time
+        :param t: skyfield.timelib.Time
             The Time to which move the Tychos system
         :return: tuple[ndarray, ndarray, None, None]
             first element corresponds to relative position with skyfield ref object position added,
             the rest of elements to comply with the skyfield infrastructure
         """
 
-        self.move_system(time.tt)
-        obj = self[self._name_native]
-        p = obj.location_transformed(self[self._ref_name_native], None)
-        p += self.ref_obj_skyfield.position.au
+        self.move_system(t.tt)
+        obj = self[self.name]
+        p = obj.location_transformed(self[self.ref_obj.name], None)
+        p += self.ref_obj.skyfield_obj.at(t).position.au
         v = array([0, 0, 0])
         return p, v, None, None
 
-    def get_all_objects(self):
+    def at(self, t):
         """
-        Get all tychos objects.
-        Overrides base class function to include "_tychos" in the name
-        :return: list[string]
-        """
-
-        return [x + "_tychos" for x in super().get_all_objects()]
-
-    def get_observable_objects(self):
-        """
-        Get observable tychos objects.
-        Overrides base class function to include "_tychos" in the name
-        :return: list[string]
+        Override at() method to correctly get relative position
+        :param t: skyfield.timelib.Time
+            The Time to which move the Tychos system
+        :return: skyfield.positionlib.ICRF
+            Updated position object
         """
 
-        return [x + "_tychos" for x in super().get_observable_objects()]
+        pos = super().at(t)
+        pos.position.au -= self.ref_obj.skyfield_obj.at(t).position.au
+        return pos
+
+    def native_object(self, object_name=None):
+        """
+        Returns native PlanetObj associated with this object (name).
+        Mostly useful for debugging.
+        :param object_name: Optional[string] = None
+            the name of the native object to return, default corresponds to the name of this object
+        :return: tychosbaselib.PlanetObj
+            native object
+        """
+
+        if object_name is None:
+            object_name = self.name
+        return super().__getitem__(object_name)
