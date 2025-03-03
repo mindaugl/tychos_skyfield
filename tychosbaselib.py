@@ -249,16 +249,17 @@ class TychosSystem:
 
     """
 
+    _all_objects = ['earth', 'polar_axis', 'sun_def', 'sun',
+            'mercury_def_a', 'mercury_def_b', 'mercury',
+            'moon_def_a', 'moon_def_b', 'moon', 'venus_def_a', 'venus_def_b', 'venus',
+            'mars_def_e', 'mars_def_s', 'mars', 'phobos', 'deimos', 'jupiter_def', 'jupiter',
+            'saturn_def', 'saturn', 'uranus_def', 'uranus', 'neptune_def', 'neptune',
+            'halleys_def', 'halleys', 'eros_def_a', 'eros_def_b', 'eros']
+    _observable_objects = ['sun', 'mercury', 'moon', 'venus', 'mars', 'phobos', 'deimos',
+            'jupiter', 'saturn', 'uranus', 'neptune', 'halleys', 'eros']
+
     def __init__(self, julian_day = 2451717.0):
         self.julian_day = julian_day
-        self._all_objects = ['earth', 'polar_axis', 'sun_def', 'sun',
-                'mercury_def_a', 'mercury_def_b', 'mercury',
-                'moon_def_a', 'moon_def_b', 'moon', 'venus_def_a', 'venus_def_b', 'venus',
-                'mars_def_e', 'mars_def_s', 'mars', 'phobos', 'deimos', 'jupiter_def', 'jupiter',
-                'saturn_def', 'saturn', 'uranus_def', 'uranus', 'neptune_def', 'neptune',
-                'halleys_def', 'halleys', 'eros_def_a', 'eros_def_b', 'eros']
-        self._observable_objects = ['sun', 'mercury', 'moon', 'venus', 'mars', 'phobos', 'deimos',
-                'jupiter', 'saturn', 'uranus', 'neptune', 'halleys', 'eros']
         self._objs = {}
         self._initialize_objects()
         self._set_dependencies()
@@ -439,18 +440,20 @@ class TychosSystem:
         for p in self._all_objects:
             self._objs[p].move_planet_tt(julian_day)
 
-    def get_all_objects(self):
+    @classmethod
+    def get_all_objects(cls):
         """
         Returns all possible objects
         :return: list[string]
         """
 
-        return self._all_objects
+        return cls._all_objects
 
-    def get_observable_objects(self):
+    @classmethod
+    def get_observable_objects(cls):
         """
         Returns observable objects
         :return: list[string]
         """
 
-        return self._observable_objects
+        return cls._observable_objects
