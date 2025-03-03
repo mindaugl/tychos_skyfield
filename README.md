@@ -19,6 +19,10 @@ There are two example files in the Examples directory:
   
 that demonstrates how to use Tychos libraries practically.
 
+
+
 Tychosium 3-D (source code): https://codepen.io/pholmq/full/XGPrPd
+
 Tychos project: https://www.tychos.space/
+
 Skyfield: https://rhodesmill.org/skyfield/
