@@ -3,7 +3,7 @@ Test radec_direct calculation in Tychos coordinate system at default time 2000-0
  time of 1900-06-21 12:00:00, as calculated in 'date', 'june2000' and 'j2000June' epochs
 """
 
-import tychosbaselib as Tychos
+from tychos_skyfield import baselib as Tychos
 
 system = Tychos.TychosSystem()
 precision = 0.0001

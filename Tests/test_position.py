@@ -2,7 +2,7 @@
 Test location in Tychos coordinate system for the default time of 2000-06-21 12:00:00
 """
 
-import tychosbaselib as Tychos
+from tychos_skyfield import baselib as Tychos
 
 system = Tychos.TychosSystem()
 precision = 0.0001

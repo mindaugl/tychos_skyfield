@@ -4,7 +4,8 @@ Library dependencies are: numpy and scipy.
 """
 
 import datetime as dt
-import tychosbaselib as T
+from tychos_skyfield import baselib as T
+
 
 def get_julian_day(date_time):
     """

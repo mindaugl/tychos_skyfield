@@ -4,7 +4,7 @@ Library containing Tychos object interface with Skyfield.
 
 from skyfield.vectorlib import VectorFunction
 from numpy import array
-from tychosbaselib import TychosSystem
+from tychos_skyfield.baselib import TychosSystem
 
 class ReferencePlanet():
     """

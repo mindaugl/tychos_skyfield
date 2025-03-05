@@ -9,7 +9,7 @@ about 15 arcseconds discrepancy as compared to the Tychosium calculation.
 """
 
 from skyfield.api import load
-import tychosskyfieldlib as TS
+from tychos_skyfield import skyfieldlib as TS
 
 # Get Tychos observable objects:
 print("Tychos observable objects:", TS.TychosSkyfield.get_observable_objects())
