@@ -229,7 +229,7 @@ class PlanetObj:
             raise AttributeError("Unknown epoch provided: " + epoch +
                             ". Only epochs 'j2000', 'j2000June' and 'date' are supported." )
 
-        loc = (r2 * r1).apply(self.location - ref_obj.location) / 100
+        loc = np.transpose((r2 * r1).apply(self.location - ref_obj.location)) / 100
         return loc
 
 

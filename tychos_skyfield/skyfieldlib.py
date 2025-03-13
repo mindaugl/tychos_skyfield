@@ -3,7 +3,7 @@ Library containing Tychos object interface with Skyfield.
 """
 
 from skyfield.vectorlib import VectorFunction
-from numpy import array
+from numpy import zeros
 from tychos_skyfield.baselib import TychosSystem
 
 class ReferencePlanet():
@@ -84,6 +84,8 @@ class TychosSkyfield(VectorFunction, TychosSystem):
     def _at(self, t):
         """
         Evaluate relative position to the tychos ref object and add skyfield ref object position.
+        NOTE: Velocity of object is set to 0 (which is not correct, but does not
+        affect most calculations)
         :param t: skyfield.timelib.Time
             The Time to which move the Tychos system
         :return: tuple[ndarray, ndarray, None, None]
@@ -95,7 +97,7 @@ class TychosSkyfield(VectorFunction, TychosSystem):
         obj = self[self.name]
         p = obj.location_transformed(self[self.ref_obj.name], None)
         p += self.ref_obj.skyfield_obj.at(t).position.au
-        v = array([0, 0, 0])
+        v = zeros(p.shape)
         return p, v, None, None
 
     def at(self, t):
