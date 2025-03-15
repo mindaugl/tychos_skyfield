@@ -126,3 +126,22 @@ class TychosSkyfield(VectorFunction, TychosSystem):
         if object_name is None:
             object_name = self.name
         return super().__getitem__(object_name)
+
+
+class Ephemeris():
+    """
+    Ephemeris object for Tychos system.
+    For ref object name (typically 'earth'), returns Skyfield object (and not Tychos object).
+    Ephemeris attribute of ref object (object.ephemeris) points to Skyfield ephemeris.
+    'ref_obj' is of type ReferencePlanet and 'item' is of type string.
+    Usage:
+        eph_t = EphemerisTychos(ref_obj)
+        eph_t['jupiter'].at(time)
+    """
+    def __init__(self, ref_obj):
+        self.ref = ref_obj
+    def __getitem__(self, item):
+        name = item.lower()
+        if name == self.ref.name:
+            return self.ref.skyfield_obj
+        return TychosSkyfield(name, self.ref)
