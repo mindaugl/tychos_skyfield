@@ -27,6 +27,7 @@ class ReferencePlanet():
         self.skyfield_objs = skyfield_objs
         self.skyfield_name = skyfield_name
         self.skyfield_obj = self._get_skyfield_obj()
+
     def _get_skyfield_obj(self):
         """
         Get Skyfield object to be used as reference in TychosSkyfield
@@ -76,10 +77,24 @@ class TychosSkyfield(VectorFunction, TychosSystem):
 
     def __init__(self, name, ref_obj, center=0):
         self.center = center
-        self.target = None
-        self.name = name
+        self.name = name.lower()
         self.ref_obj = ref_obj
+        self.target = self._get_target()
         super().__init__()
+
+    def _get_target(self):
+        """
+        Get the target code to be consistent with Skyfield Ephemeris
+        :return: Int or None
+        """
+        skyfield_names_dict = self.ref_obj.skyfield_objs.names()
+        for k, v in skyfield_names_dict.items():
+            if self.name == v[-1].lower():
+                return k
+        for k, v in skyfield_names_dict.items():
+            if self.name in v[-1].lower():
+                return k
+        return None
 
     def _at(self, t):
         """
@@ -138,6 +153,7 @@ class Ephemeris():
         eph_t = EphemerisTychos(ref_obj)
         eph_t['jupiter'].at(time)
     """
+
     def __init__(self, ref_obj):
         self.ref = ref_obj
     def __getitem__(self, item):
