@@ -6,7 +6,7 @@ from skyfield.api import load
 from numpy import array
 from tychos_skyfield import skyfieldlib as TS
 
-eph_s = load('../../de421.bsp')
+eph_s = load('de421.bsp')
 
 earth_ref = TS.ReferencePlanet('Earth', eph_s)
 eph_t = TS.Ephemeris(earth_ref)
