@@ -6,7 +6,6 @@ Test radec_direct calculation in Tychos coordinate system at default time 2000-0
 from tychos_skyfield import baselib as Tychos
 
 system = Tychos.TychosSystem()
-precision = 0.0001
 string_format = "{}, {}, {:.4f}au"
 mercury = system['Mercury']
 earth = system['Earth']
@@ -28,5 +27,7 @@ radec_j2000 = mercury.radec_direct(earth, polar_axis, 'j2000')
 assert string_format.format(*radec_j2000) == "7h 30m 18.01s, +22deg 16' 48.7\", 1.0903au"
 
 system.move_system(2451545.0) # 2000-01-01 12:00:00 TT
-assert(string_format.format(*mercury.radec_direct(earth, polar_axis, 'date')) ==
-       string_format.format(*mercury.radec_direct(earth, None, 'j2000')))
+assert (string_format.format(*mercury.radec_direct(earth, polar_axis, 'date')) ==
+        string_format.format(*mercury.radec_direct(earth, None, 'j2000')))
+assert ("{:.4f}, {:.4f}, {:.4f}".format(*mercury.radec_direct(earth, formatted=False))
+        == "4.7659, -0.4109, 1.4372")

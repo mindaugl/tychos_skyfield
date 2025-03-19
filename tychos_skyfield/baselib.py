@@ -142,7 +142,7 @@ class PlanetObj:
 
         self.children += [child_obj]
 
-    def radec_direct(self, ref_obj, polar_obj=None, epoch='j2000'):
+    def radec_direct(self, ref_obj, polar_obj=None, epoch='j2000', formatted=True):
         """
         Calculate RA and DEC for the current location of the planet. It uses projects planet
         location to the appropriate ref frame for the epoch
@@ -156,6 +156,9 @@ class PlanetObj:
             epoch specifies which 'time' is used for ra/dec calculation. 'j2000' corresponds
             to J2000 (and roughly to ICRF), 'j2000June' corresponds to the 2000/06/21 12:00:00 date
              and 'date' is frame associated with current time
+        :param formatted: Optional[Boolean] = True
+            If True, return formatted ra/dec using hours and degrees.
+            If False, return ra/dec in radians.
         :return: tuple[String, String, Float] - (ra, dec, dist)
             ra is calculated in hours
             dec is calculated in degrees
@@ -177,21 +180,24 @@ class PlanetObj:
 
         unit_prime = rot.apply(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
         loc_prime = np.dot(unit_prime, self.location - ref_obj.location)
+        dist = np.linalg.norm(loc_prime) / 100
         dec = np.pi / 2 - np.arccos(loc_prime[1] / np.sqrt(np.dot(loc_prime, loc_prime)))
+        ra = (np.sign(loc_prime[0]) *
+              np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
+        if ra < 0:
+            ra += 2 * np.pi
+        if not formatted:
+            return ra, dec, dist
+
         dec_sgn = np.sign(dec)
         dec *= dec_sgn * 180 / np.pi
         dec_str = ("{:+.0f}deg {:02.0f}\' {:02.1f}\""
                    .format(dec_sgn * np.floor(dec), np.floor(dec % np.floor(dec) * 60),
                            np.remainder(dec % np.floor(dec) * 60, 1) * 60))
-        ra = (np.sign(loc_prime[0]) *
-              np.arccos(loc_prime[2] / np.sqrt(loc_prime[0] ** 2 + loc_prime[2] ** 2)))
-        if ra < 0:
-            ra += 2 * np.pi
         ra *= 12 / np.pi
         ra_str = "{:.0f}h {:02.0f}m {:02.2f}s".format(
             np.floor(ra), np.floor(np.remainder(ra, 1) * 60),
             np.remainder(np.remainder(ra, 1) * 60, 1) * 60)
-        dist = np.linalg.norm(loc_prime) / 100
         return ra_str, dec_str, dist
 
     def location_transformed(self, ref_obj, polar_obj, epoch='j2000'):
